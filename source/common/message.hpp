@@ -1,6 +1,6 @@
 #pragma once
 #include "fields.hpp"
-#include "abstracct.hpp"
+#include "abstract.hpp"
 #include "detail.hpp"
 
 namespace rpc

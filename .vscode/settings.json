@@ -65,6 +65,12 @@
         "shared_mutex": "cpp",
         "stdfloat": "cpp",
         "typeindex": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "cassert": "cpp",
+        "cerrno": "cpp",
+        "cfloat": "cpp",
+        "climits": "cpp",
+        "set": "cpp",
+        "unordered_set": "cpp"
     }
 }
