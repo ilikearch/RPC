@@ -90,7 +90,7 @@ namespace rpc
         {
             _body[KEY_METHOD] = mthod_name;
         }
-        Json::Value Params()
+        Json::Value params()
         {
             return _body[KEY_PARAMS];
         }
