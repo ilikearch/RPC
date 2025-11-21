@@ -159,7 +159,7 @@ namespace rpc
                 _service_manager->insert(service);
             }
             // 这是注册到Dispatcher模块针对rpc请求进行回调处理的业务函数
-            void onRpcResquest(const BaseConnection::ptr &conn, RpcRequest::ptr &request)
+            void onRpcRequest(const BaseConnection::ptr &conn, RpcRequest::ptr &request)
             {
                 // 1. 查询客户端请求的方法描述--判断当前服务端能否提供对应的服务
                 auto service = _service_manager->select(request->method());

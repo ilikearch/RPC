@@ -1,8 +1,9 @@
 #include "../common/dispatcher.hpp"
+#include "../common/net.hpp"
 #include "../client/rpc_client.hpp"
 #include "rpc_router.hpp"
 #include "rpc_registry.hpp"
-// #include "rpc_topic.hpp"
+#include "rpc_topic.hpp"
 
 namespace rpc
 {
@@ -12,12 +13,86 @@ namespace rpc
         {
         public:
             using ptr = std::shared_ptr<RegistryServer>;
+            RegistryServer(int port)
+                : _pd_manager(std::make_shared<PDManager>()),
+                  _dispather(std::make_shared<Dispatcher>())
+            {
+                auto service_cb = std::bind(&PDManager::onServiceRequest, _pd_manager.get(),
+                                            std::placeholders::_1, std::placeholders::_2);
+                _dispather->registerHandler<ServiceRequest>(MType::REQ_RPC, service_cb);
+                _server = ServerFactory::create(port);
+                auto msg_cb = std::bind(&Dispatcher::onMessage, _dispather.get(),
+                                        std::placeholders::_1, std::placeholders::_2);
+                _server->setMessageCallback(msg_cb);
+                auto close_cb = std::bind(&RegistryServer::onConnShutdown, this,
+                                          std::placeholders::_1);
+                _server->setCloseCallback(close_cb);
+            }
+            void start()
+            {
+                _server->start();
+            }
+
+        private:
+            void onConnShutdown(const BaseConnection::ptr &conn)
+            {
+                _pd_manager->onConnShutdown(conn);
+            }
 
         private:
             PDManager::ptr _pd_manager;
             Dispatcher::ptr _dispather;
             BaseServer::ptr _server;
         };
-    }
 
-}
+        class RpcServer
+        {
+        public:
+            using ptr = std::shared_ptr<RpcServer>;
+            void start()
+            {
+                _server->start();
+            }
+            // rpc——server端有两套地址信息：
+            //   1. rpc服务提供端地址信息--必须是rpc服务器对外访问地址（云服务器---监听地址和访问地址不同）
+            //   2. 注册中心服务端地址信息 -- 启用服务注册后，连接注册中心进行服务注册用的
+            RpcServer(const Address &access_addr, bool enableRegistry = false, const Address &registry_server_addr = Address())
+                : _enableRegistry(enableRegistry),
+                  _access_addr(access_addr),
+                  _router(std::make_shared<server::RpcRouter>()),
+                  _dispatcher(std::make_shared<rpc::Dispatcher>())
+
+            {
+                if (enableRegistry)
+                {
+                    _reg_client = std::make_shared<client::RegistryClient>(registry_server_addr.first, registry_server_addr.second);
+                }
+                // 当前成员server是一个rpcserver，用于提供rpc服务的
+                auto rpc_cb = std::bind(&RpcRouter::onRpcRequest, _router.get(),
+                                        std::placeholders::_1, std::placeholders::_2);
+                _dispatcher->registerHandler<rpc::RpcRequest>(rpc::MType::REQ_RPC, rpc_cb);
+
+                _server = rpc::ServerFactory::create(access_addr.second);
+                auto message_cb = std::bind(&rpc::Dispatcher::onMessage, _dispatcher.get(),
+                                            std::placeholders::_1, std::placeholders::_2);
+                _server->setMessageCallback(message_cb);
+            }
+            void registryMethod(const ServiceDescribe::ptr &service)
+            {
+                if (_enableRegistry)
+                {
+                    _reg_client->registryMethod(service->method(), _access_addr);
+                }
+                _router->registerMethod(service);
+            }
+
+        private:
+            bool _enableRegistry;
+            Address _access_addr;
+            rpc::client::RegistryClient::ptr _rpc_client;
+            RpcRouter::ptr _router;
+            Dispatcher::ptr _dispatcher;
+            BaseServer::ptr _server;
+        };
+
+    }

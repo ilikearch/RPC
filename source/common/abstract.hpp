@@ -76,7 +76,7 @@ namespace rpc
         {
             _cb_message = cb;
         }
-
+        virtual void start()=0;
     protected:
         ConnectionCallback _cb_connection;
         CloseCallback _cb_close;
