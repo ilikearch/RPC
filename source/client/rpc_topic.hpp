@@ -12,22 +12,13 @@ namespace rpc
             using SubCallback = std::function<void(const std::string &key, const std::string &msg)>;
             using ptr = std::shared_ptr<TopicManager>;
             TopicManager(const Requestor::ptr &requestor) : _requestor(requestor) {}
-            bool creat(const BaseConnection::ptr &conn, const std::string &key)
+            bool create(const BaseConnection::ptr &conn, const std::string &key)
             {
                 return commonRequest(conn, key, TopicOptype::TOPIC_CREATE);
             }
             bool remove(const BaseConnection::ptr &conn, const std::string &key)
             {
                 return commonRequest(conn, key, TopicOptype::TOPIC_REMOVE);
-            }
-            bool cancel(const BaseConnection::ptr &conn, const std::string &key)
-            {
-                delSubscribe(key);
-                return commonRequest(conn, key, TopicOptype::TOPIC_CANCEL);
-            }
-            bool publish(const BaseConnection::ptr &conn, const std::string &key, const std::string &msg)
-            {
-                return commonRequest(conn, key, TopicOptype::TOPIC_PUBLISH, msg);
             }
             bool subscribe(const BaseConnection::ptr &conn, const std::string &key, const SubCallback &cb)
             {
@@ -40,7 +31,15 @@ namespace rpc
                 }
                 return true;
             }
-
+            bool cancel(const BaseConnection::ptr &conn, const std::string &key)
+            {
+                delSubscribe(key);
+                return commonRequest(conn, key, TopicOptype::TOPIC_CANCEL);
+            }
+            bool publish(const BaseConnection::ptr &conn, const std::string &key, const std::string &msg)
+            {
+                return commonRequest(conn, key, TopicOptype::TOPIC_PUBLISH, msg);
+            }
             void onPublish(const BaseConnection::ptr &conn, const TopicRequest::ptr &msg)
             {
                 // 1. 从消息中取出操作类型进行判断，是否是消息请求
@@ -53,7 +52,7 @@ namespace rpc
                 // 2. 取出消息主题名称，以及消息内容
                 std::string topic_key = msg->topicKey();
                 std::string topic_msg = msg->topicMsg();
-                // 3. 通过主题名称，查找对应主题的回调处理函数，有则处理，无在报错
+                // 3. 通过主题名称，查找对应主题的回调处理函数，有在处理，无在报错
                 auto callback = getSubscribe(topic_key);
                 if (!callback)
                 {
@@ -84,7 +83,8 @@ namespace rpc
                 }
                 return it->second;
             }
-            bool commonRequest(const BaseConnection::ptr &conn, const std::string &key, TopicOptype type, const std::string &msg = "")
+            bool commonRequest(const BaseConnection::ptr &conn, const std::string &key,
+                               TopicOptype type, const std::string &msg = "")
             {
                 // 1. 构造请求对象，并填充数据
                 auto msg_req = MessageFactory::create<TopicRequest>();
@@ -101,19 +101,19 @@ namespace rpc
                 bool ret = _requestor->send(conn, msg_req, msg_rsp);
                 if (ret == false)
                 {
-                    ELOG("主题请求失败！");
+                    ELOG("主题操作请求失败！");
                     return false;
                 }
                 // 3. 判断请求处理是否成功
                 auto topic_rsp_msg = std::dynamic_pointer_cast<TopicResponse>(msg_rsp);
                 if (!topic_rsp_msg)
                 {
-                    ELOG("主题操作响应向下转换失败");
+                    ELOG("主题操作响应，向下类型转换失败！");
                     return false;
                 }
                 if (topic_rsp_msg->rcode() != RCode::RCODE_OK)
                 {
-                    ELOG("主题操作请求出错：%s", errReason(topic_rsp_msg->rcode()));
+                    ELOG("主题操作请求出错：%s", errReason(topic_rsp_msg->rcode()).c_str());
                     return false;
                 }
                 return true;
@@ -124,6 +124,5 @@ namespace rpc
             std::unordered_map<std::string, SubCallback> _topic_callbacks;
             Requestor::ptr _requestor;
         };
-
     }
 }

@@ -100,7 +100,6 @@ namespace rpc
         }
         virtual void connect() = 0;
         virtual void shutdown() = 0;
-        virtual bool connected() = 0;
         virtual bool send(const BaseMessage::ptr &) = 0;
         virtual BaseConnection::ptr connection() = 0;
         virtual bool connected() = 0;

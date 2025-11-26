@@ -50,7 +50,7 @@ namespace rpc
                 return it->second->onMessage(conn, msg);
             }
             // 没有找到指定类型的处理回调--因为客户端和服务端都是我们自己设计的，因此不可能出现这种情况
-            ELOG("收到未知类型的消息: %d！", msg->mtype());
+            ELOG("收到未知类型的消息: %d！", static_cast<int>(msg->mtype()));
             conn->shutdown();
         }
 

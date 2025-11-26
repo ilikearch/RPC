@@ -1,6 +1,6 @@
 #pragma once
-#include "../common/message.hpp"
 #include "../common/net.hpp"
+#include "../common/message.hpp"
 #include <future>
 #include <functional>
 
@@ -82,7 +82,8 @@ namespace rpc
             }
 
         private:
-            RequestDescribe::ptr newDescribe(const BaseMessage::ptr &req, RType rtype, const RequestCallback &cb = RequestCallback())
+            RequestDescribe::ptr newDescribe(const BaseMessage::ptr &req, RType rtype,
+                                             const RequestCallback &cb = RequestCallback())
             {
                 std::unique_lock<std::mutex> lock(_mutex);
                 RequestDescribe::ptr rd = std::make_shared<RequestDescribe>();

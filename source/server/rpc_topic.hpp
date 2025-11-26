@@ -18,26 +18,31 @@ namespace rpc
                 bool ret = true;
                 switch (topic_optype)
                 {
+                // 主题的创建
                 case TopicOptype::TOPIC_CREATE:
                     topicCreate(conn, msg);
                     break;
+                // 主题的删除
                 case TopicOptype::TOPIC_REMOVE:
                     topicRemove(conn, msg);
                     break;
+                // 主题的订阅
                 case TopicOptype::TOPIC_SUBSCRIBE:
                     ret = topicSubscribe(conn, msg);
                     break;
+                // 主题的取消订阅
                 case TopicOptype::TOPIC_CANCEL:
                     topicCancel(conn, msg);
                     break;
+                // 主题消息的发布
                 case TopicOptype::TOPIC_PUBLISH:
                     ret = topicPublish(conn, msg);
                     break;
                 default:
-                    return errrorResponse(conn, msg, RCode::RCODE_INVALID_OPTYPE);
+                    return errorResponse(conn, msg, RCode::RCODE_INVALID_OPTYPE);
                 }
                 if (!ret)
-                    return errrorResponse(conn, msg, RCode::RCODE_NOT_FOUND_TOPIC);
+                    return errorResponse(conn, msg, RCode::RCODE_NOT_FOUND_TOPIC);
                 return topicResponse(conn, msg);
             }
             // 一个订阅者在连接断开时的处理---删除其关联的数据
@@ -52,7 +57,7 @@ namespace rpc
                     auto it = _subscribers.find(conn);
                     if (it == _subscribers.end())
                     {
-                        return; // 不是订阅者链接
+                        return; // 断开的连接，不是一个订阅者的连接
                     }
                     subscriber = it->second;
                     // 2. 获取到订阅者退出，受影响的主题对象
@@ -63,10 +68,10 @@ namespace rpc
                             continue;
                         topics.push_back(topic_it->second);
                     }
-                    // 3. 从订阅者映射信息中，删除订阅者
+                    // 4. 从订阅者映射信息中，删除订阅者
                     _subscribers.erase(it);
                 }
-                // 4. 从受影响的主题对象中，移除订阅者
+                // 3. 从受影响的主题对象中，移除订阅者
                 for (auto &topic : topics)
                 {
                     topic->removeSubscriber(subscriber);
@@ -74,7 +79,7 @@ namespace rpc
             }
 
         private:
-            void errrorResponse(const BaseConnection::ptr &conn, const TopicRequest::ptr &msg, RCode rcode)
+            void errorResponse(const BaseConnection::ptr &conn, const TopicRequest::ptr &msg, RCode rcode)
             {
                 auto msg_rsp = MessageFactory::create<TopicResponse>();
                 msg_rsp->setId(msg->rid());
@@ -115,15 +120,15 @@ namespace rpc
                     subscribers = it->second->subscribers;
                     _topics.erase(it); // 删除当前的主题映射关系，
                 }
-                for (auto &subsceribr : subscribers)
+                for (auto &subscriber : subscribers)
                 {
-                    subsceribr->removeTopic(topic_name);
+                    subscriber->removeTopic(topic_name);
                 }
             }
             bool topicSubscribe(const BaseConnection::ptr &conn, const TopicRequest::ptr &msg)
             {
                 // 1. 先找出主题对象，以及订阅者对象
-                //   如果没有找到主题--就要报错；  但是如果没有找到订阅者对象，那就要构造一个订阅者
+                //    如果没有找到主题--就要报错；  但是如果没有找到订阅者对象，那就要构造一个订阅者
                 Topic::ptr topic;
                 Subscriber::ptr subscriber;
                 {
@@ -152,7 +157,7 @@ namespace rpc
             }
             void topicCancel(const BaseConnection::ptr &conn, const TopicRequest::ptr &msg)
             {
-                // 1. 先找出主题对象，以及订阅者对象
+                // 1. 先找出主题对象，和订阅者对象
                 Topic::ptr topic;
                 Subscriber::ptr subscriber;
                 {
@@ -196,7 +201,7 @@ namespace rpc
                 using ptr = std::shared_ptr<Subscriber>;
                 std::mutex _mutex;
                 BaseConnection::ptr conn;
-                std::unordered_set<std::string> topics; // 订阅者订阅的主题名称
+                std::unordered_set<std::string> topics; // 订阅者所订阅的主题名称
 
                 Subscriber(const BaseConnection::ptr &c) : conn(c) {}
                 // 订阅主题的时候调用
@@ -205,11 +210,10 @@ namespace rpc
                     std::unique_lock<std::mutex> lock(_mutex);
                     topics.insert(topic_name);
                 }
-                // 主题被删除 或者 取消订阅的时候调用
+                // 主题被删除 或者 取消订阅的时候，调用
                 void removeTopic(const std::string &topic_name)
                 {
                     std::unique_lock<std::mutex> lock(_mutex);
-                    topics.erase(topic_name);
                 }
             };
             struct Topic

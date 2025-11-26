@@ -18,6 +18,7 @@ namespace rpc
             {
                 return std::string();
             }
+            return body;
         }
         virtual bool unserialize(const std::string &msg) override
         {

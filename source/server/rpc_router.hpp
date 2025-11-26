@@ -81,6 +81,8 @@ namespace rpc
                 case VType::OBJECT:
                     return val.isObject();
                 }
+                // 如果确定所有 VType 值都已处理，可以添加：
+                __builtin_unreachable();
             }
 
         private:
@@ -92,7 +94,7 @@ namespace rpc
         class SDescribeFactory
         {
         public:
-            void setMthodName(const std::string &name)
+            void setMethodName(const std::string &name)
             {
                 _method_name = name;
             }
@@ -108,7 +110,7 @@ namespace rpc
             {
                 _params_desc.push_back(ServiceDescribe::ParamsDescribe(pname, vtype));
             }
-            ServiceDescribe::ptr bulid()
+            ServiceDescribe::ptr build()
             {
                 return std::make_shared<ServiceDescribe>(std::move(_method_name),
                                                          std::move(_params_desc), _return_type, std::move(_callback));

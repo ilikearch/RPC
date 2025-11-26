@@ -11,13 +11,13 @@ namespace rpc
         public:
             using ptr = std::shared_ptr<Provider>;
             Provider(const Requestor::ptr &requestor) : _requestor(requestor) {}
-            bool registryMthod(const BaseConnection::ptr &conn, const std::string &method, const Address &host)
+            bool registryMethod(const BaseConnection::ptr &conn, const std::string &method, const Address &host)
             {
                 auto msg_req = MessageFactory::create<ServiceRequest>();
                 msg_req->setId(UUID::uuid());
+                msg_req->setMType(MType::REQ_SERVICE);
                 msg_req->setMethod(method);
                 msg_req->setHost(host);
-                msg_req->setMType(MType::REQ_SERVICE);
                 msg_req->setOptype(ServiceOptype::SERVICE_REGISTRY);
                 BaseMessage::ptr msg_rsp;
                 bool ret = _requestor->send(conn, msg_req, msg_rsp);
@@ -43,6 +43,7 @@ namespace rpc
         private:
             Requestor::ptr _requestor;
         };
+
         class MethodHost
         {
         public:
@@ -68,11 +69,11 @@ namespace rpc
                     }
                 }
             }
-            Address choseHost()
+            Address chooseHost()
             {
                 std::unique_lock<std::mutex> lock(_mutex);
                 size_t pos = _idx++ % _hosts.size();
-                return _hosts[_idx];
+                return _hosts[pos];
             }
             bool empty()
             {
@@ -85,15 +86,12 @@ namespace rpc
             size_t _idx;
             std::vector<Address> _hosts;
         };
-
         class Discoverer
         {
         public:
-            using ptr = std::shared_ptr<Discoverer>;
             using OfflineCallback = std::function<void(const Address &)>;
-            Discoverer(const Requestor::ptr &requestor, const OfflineCallback &cb)
-                : _requestor(requestor),
-                  _offline_callback(cb) {}
+            using ptr = std::shared_ptr<Discoverer>;
+            Discoverer(const Requestor::ptr &requestor, const OfflineCallback &cb) : _requestor(requestor), _offline_callback(cb) {}
             bool serviceDiscovery(const BaseConnection::ptr &conn, const std::string &method, Address &host)
             {
                 {
@@ -104,7 +102,7 @@ namespace rpc
                     {
                         if (it->second->empty() == false)
                         {
-                            host = it->second->choseHost();
+                            host = it->second->chooseHost();
                             return true;
                         }
                     }
@@ -112,29 +110,28 @@ namespace rpc
                 // 当前服务的提供者为空
                 auto msg_req = MessageFactory::create<ServiceRequest>();
                 msg_req->setId(UUID::uuid());
-                msg_req->setMethod(method);
-                msg_req->setHost(host);
                 msg_req->setMType(MType::REQ_SERVICE);
+                msg_req->setMethod(method);
                 msg_req->setOptype(ServiceOptype::SERVICE_DISCOVERY);
                 BaseMessage::ptr msg_rsp;
                 bool ret = _requestor->send(conn, msg_req, msg_rsp);
                 if (ret == false)
                 {
-                    ELOG("%s 服务发现失败！", method.c_str());
+                    ELOG("服务发现失败！");
                     return false;
                 }
                 auto service_rsp = std::dynamic_pointer_cast<ServiceResponse>(msg_rsp);
-                if (service_rsp.get() == nullptr)
+                if (!service_rsp)
                 {
-                    ELOG("服务发现失败 响应类型向下转换失败！");
+                    ELOG("服务发现失败！响应类型转换失败！");
                     return false;
                 }
                 if (service_rsp->rcode() != RCode::RCODE_OK)
                 {
-                    ELOG("服务发现失败，原因：%s", errReason(service_rsp->rcode()).c_str());
+                    ELOG("服务发现失败！%s", errReason(service_rsp->rcode()).c_str());
                     return false;
                 }
-                // 能走到这里，代表当前是没有对应服务提供主机
+                // 能走到这里，代表当前是没有对应的服务提供主机的
                 std::unique_lock<std::mutex> lock(_mutex);
                 auto method_host = std::make_shared<MethodHost>(service_rsp->hosts());
                 if (method_host->empty())
@@ -142,7 +139,7 @@ namespace rpc
                     ELOG("%s 服务发现失败！没有能够提供服务的主机！", method.c_str());
                     return false;
                 }
-                host = method_host->choseHost();
+                host = method_host->chooseHost();
                 _method_hosts[method] = method_host;
                 return true;
             }

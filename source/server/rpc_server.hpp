@@ -19,7 +19,7 @@ namespace rpc
             {
                 auto service_cb = std::bind(&PDManager::onServiceRequest, _pd_manager.get(),
                                             std::placeholders::_1, std::placeholders::_2);
-                _dispather->registerHandler<ServiceRequest>(MType::REQ_RPC, service_cb);
+                _dispather->registerHandler<ServiceRequest>(MType::REQ_SERVICE, service_cb);
                 _server = ServerFactory::create(port);
                 auto msg_cb = std::bind(&Dispatcher::onMessage, _dispather.get(),
                                         std::placeholders::_1, std::placeholders::_2);
@@ -77,7 +77,7 @@ namespace rpc
                                             std::placeholders::_1, std::placeholders::_2);
                 _server->setMessageCallback(message_cb);
             }
-            void registryMethod(const ServiceDescribe::ptr &service)
+            void registerMethod(const ServiceDescribe::ptr &service)
             {
                 if (_enableRegistry)
                 {
@@ -98,19 +98,19 @@ namespace rpc
         {
         public:
             using ptr = std::shared_ptr<TopicServer>;
-            TopicServer(int port)
-                : _topic_manager(std::make_shared<TopicManager>()),
-                  _dispather(std::make_shared<rpc::Dispatcher>())
+            TopicServer(int port) : _topic_manager(std::make_shared<TopicManager>()),
+                                    _dispatcher(std::make_shared<rpc::Dispatcher>())
             {
                 auto topic_cb = std::bind(&TopicManager::onTopicRequest, _topic_manager.get(),
+                                          std::placeholders::_1, std::placeholders::_2);
+                _dispatcher->registerHandler<TopicRequest>(MType::REQ_TOPIC, topic_cb);
+
+                _server = rpc::ServerFactory::create(port);
+                auto message_cb = std::bind(&rpc::Dispatcher::onMessage, _dispatcher.get(),
                                             std::placeholders::_1, std::placeholders::_2);
-                _dispather->registerHandler<TopicRequest>(MType::REQ_TOPIC, topic_cb);
-                _server = ServerFactory::create(port);
-                auto msg_cb = std::bind(&rpc::Dispatcher::onMessage, _dispather.get(),
-                                        std::placeholders::_1, std::placeholders::_2);
-                _server->setMessageCallback(msg_cb);
-                auto close_cb = std::bind(&TopicServer::onConnShutdown, this,
-                                          std::placeholders::_1);
+                _server->setMessageCallback(message_cb);
+
+                auto close_cb = std::bind(&TopicServer::onConnShutdown, this, std::placeholders::_1);
                 _server->setCloseCallback(close_cb);
             }
             void start()
@@ -121,12 +121,12 @@ namespace rpc
         private:
             void onConnShutdown(const BaseConnection::ptr &conn)
             {
-               _topic_manager->onShutdown(conn);
+                _topic_manager->onShutdown(conn);
             }
 
         private:
             TopicManager::ptr _topic_manager;
-            Dispatcher::ptr _dispather;
+            Dispatcher::ptr _dispatcher;
             BaseServer::ptr _server;
         };
     }

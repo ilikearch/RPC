@@ -47,7 +47,6 @@ namespace rpc
             std::stringstream ss;
             // 先实例化一个工厂类对象
             Json::StreamWriterBuilder swb;
-            swb["emitUTF8"] = true;
             // 通过工厂类对象来生产派生类对象
             std::unique_ptr<Json::StreamWriter> sw(swb.newStreamWriter());
             int ret = sw->write(val, &ss);

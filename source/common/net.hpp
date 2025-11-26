@@ -25,6 +25,10 @@ namespace rpc
             : _buf(buf)
         {
         }
+        virtual size_t readableSize() override
+        {
+            return _buf->readableBytes();
+        }
         virtual int32_t peekInt32() override
         {
             // muduo库是一个网络库，从缓冲区取出一个4字节整形，会进行网络字节序的转换
@@ -111,11 +115,12 @@ namespace rpc
             int32_t n_total_len = htonl(h_total_len);
             std::string result;
             result.reserve(h_total_len);
-            result.append((char *)&n_total_len, lenFieldsLength);
-            result.append((char *)mtype, mtypeFieldsLength);
-            result.append((char *)idlen, idlenFieldsLength);
+            result.append(reinterpret_cast<const char *>(&n_total_len), lenFieldsLength);
+            result.append(reinterpret_cast<const char *>(&mtype), mtypeFieldsLength);
+            result.append(reinterpret_cast<const char *>(&idlen), idlenFieldsLength);
             result.append(id);
             result.append(body);
+            return result;
         }
 
     private:
@@ -153,7 +158,11 @@ namespace rpc
         }
         virtual bool connected() override
         {
-            _conn->connected();
+            if (_conn)
+            {
+                return _conn->connected();
+            }
+            return false;
         }
 
     private:
@@ -317,6 +326,7 @@ namespace rpc
                 return false;
             }
             _conn->send(msg);
+            return true;
         }
         virtual BaseConnection::ptr connection() override
         {
